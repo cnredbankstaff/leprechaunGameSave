@@ -1,0 +1,925 @@
+<!doctype html>
+<html lang="en" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leprechaun's Quest</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Fredoka:wght@400;600;700&display=swap');
+    
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    
+    .game-container {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+    
+    #gameCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    
+    .title-font {
+      font-family: 'Cinzel Decorative', serif;
+    }
+    
+    .game-font {
+      font-family: 'Fredoka', sans-serif;
+    }
+    
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+    
+    @keyframes sparkle {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.2); }
+    }
+    
+    @keyframes confetti-fall {
+      0% { transform: translateY(-100%) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(100%) rotate(720deg); opacity: 0; }
+    }
+    
+    .confetti {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      animation: confetti-fall 3s ease-in-out infinite;
+    }
+    
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.5); }
+      50% { box-shadow: 0 0 40px rgba(255, 215, 0, 0.8); }
+    }
+    
+    @keyframes slide-marker {
+      0% { left: 0%; }
+      100% { left: 100%; }
+    }
+    
+    .timing-marker {
+      animation: slide-marker 1.5s linear infinite alternate;
+    }
+    
+    @keyframes ship-piece-fly {
+      0% { transform: translate(0, 0) scale(1); opacity: 1; }
+      100% { transform: translate(-200px, -300px) scale(0.3); opacity: 0; }
+    }
+    
+    .rainbow-gradient {
+      background: linear-gradient(90deg, 
+        #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3);
+    }
+  </style>
+  <style>body { box-sizing: border-box; }</style>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js" type="text/javascript"></script>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="h-full bg-gradient-to-b from-emerald-400 via-emerald-500 to-emerald-700">
+  <div class="game-container" id="gameContainer">
+   <canvas id="gameCanvas"></canvas><!-- Intro Screen -->
+   <div id="introScreen" class="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-emerald-600 via-emerald-500 to-emerald-700 z-50">
+    <div class="text-center p-8">
+     <h1 class="title-font text-5xl md:text-7xl text-yellow-400 mb-4 drop-shadow-lg" style="text-shadow: 3px 3px 0 #15803d, 6px 6px 10px rgba(0,0,0,0.3);" id="gameTitle">🍀 Leprechaun's Quest 🍀</h1>
+     <p class="game-font text-xl md:text-2xl text-white mb-8 drop-shadow">Repair the Magical Flying Ship!</p>
+     <div class="mb-8">
+      <div class="w-64 h-32 mx-auto relative">
+       <!-- Animated Ship SVG -->
+       <svg viewbox="0 0 200 100" class="w-full h-full" style="animation: float 3s ease-in-out infinite;">
+        <ellipse cx="100" cy="70" rx="80" ry="25" fill="#8B4513" /> <polygon points="100,10 130,50 70,50" fill="#228B22" /> <rect x="95" y="30" width="10" height="40" fill="#8B4513" /> <circle cx="60" cy="60" r="8" fill="#FFD700" style="animation: sparkle 1s ease-in-out infinite;" /> <circle cx="140" cy="60" r="8" fill="#FFD700" style="animation: sparkle 1s ease-in-out infinite 0.3s;" /> <!-- Broken pieces indicator --> <line x1="40" y1="55" x2="60" y2="75" stroke="#ff0000" stroke-width="3" /> <line x1="140" y1="55" x2="160" y2="75" stroke="#ff0000" stroke-width="3" />
+       </svg>
+      </div>
+      <p class="game-font text-lg text-yellow-200 mt-4">The ship is broken! Find 3 pieces to repair it!</p>
+     </div><button id="startBtn" class="game-font bg-yellow-500 hover:bg-yellow-400 text-emerald-900 font-bold py-4 px-12 rounded-full text-2xl transform hover:scale-105 transition-all duration-200 shadow-lg" style="animation: pulse-glow 2s ease-in-out infinite;"> ☘️ START ADVENTURE ☘️ </button>
+     <div class="mt-6 game-font text-white text-lg">
+      <p>🎮 Controls: WASD/Arrows to move, SPACE to jump</p>
+     </div>
+    </div>
+   </div><!-- Intro Cutscene -->
+   <div id="introCutscene" class="absolute inset-0 flex flex-col items-center justify-center bg-black z-50 hidden">
+    <div class="text-center p-8">
+     <div id="cutsceneContent" class="transition-opacity duration-1000">
+      <!-- Cutscene frames will be shown here -->
+     </div>
+    </div>
+   </div><!-- Game UI -->
+   <div id="gameUI" class="absolute top-0 left-0 right-0 p-4 hidden z-40">
+    <div class="flex justify-between items-start max-w-4xl mx-auto">
+     <!-- Level & Ship Pieces -->
+     <div class="bg-emerald-800/80 backdrop-blur rounded-xl p-3 shadow-lg border-2 border-yellow-500">
+      <div class="game-font text-yellow-400 text-lg font-bold mb-2">
+       Level <span id="levelDisplay">1</span>
+      </div>
+      <div class="flex gap-2" id="shipPiecesUI">
+       <div class="w-10 h-10 rounded-lg bg-emerald-900 border-2 border-yellow-600 flex items-center justify-center">
+        <span class="text-xl" id="piece1">❓</span>
+       </div>
+       <div class="w-10 h-10 rounded-lg bg-emerald-900 border-2 border-yellow-600 flex items-center justify-center">
+        <span class="text-xl" id="piece2">❓</span>
+       </div>
+       <div class="w-10 h-10 rounded-lg bg-emerald-900 border-2 border-yellow-600 flex items-center justify-center">
+        <span class="text-xl" id="piece3">❓</span>
+       </div>
+      </div>
+     </div><!-- Ship Icon -->
+     <div class="bg-emerald-800/80 backdrop-blur rounded-xl p-3 shadow-lg border-2 border-yellow-500" id="shipIconUI">
+      <svg viewbox="0 0 60 40" class="w-16 h-12">
+       <ellipse cx="30" cy="28" rx="25" ry="10" fill="#8B4513" /> <polygon points="30,5 40,20 20,20" fill="#228B22" /> <rect x="28" y="12" width="4" height="16" fill="#8B4513" />
+      </svg>
+     </div><!-- Enemy Timer -->
+     <div class="bg-emerald-800/80 backdrop-blur rounded-xl p-3 shadow-lg border-2 border-red-500">
+      <div class="game-font text-red-400 text-sm font-bold mb-1">
+       Next Enemy
+      </div>
+      <div class="game-font text-white text-xl font-bold" id="enemyTimer">
+       1:30
+      </div>
+     </div>
+    </div>
+   </div><!-- Ship Piece Collected Message -->
+   <div id="pieceCollectedMsg" class="absolute inset-0 flex items-center justify-center z-50 hidden pointer-events-none">
+    <div class="bg-yellow-500/90 backdrop-blur-lg rounded-3xl p-8 shadow-2xl border-4 border-yellow-300 transform scale-0 transition-transform duration-500" id="pieceCollectedBox">
+     <h2 class="title-font text-4xl text-emerald-900 text-center">🌟 Ship Piece Found! 🌟</h2>
+     <div class="text-6xl text-center mt-4">
+      ⚓
+     </div>
+    </div>
+   </div><!-- Enemy Mini-Game -->
+   <div id="enemyMiniGame" class="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur z-50 hidden">
+    <div class="bg-emerald-800 rounded-3xl p-8 shadow-2xl border-4 border-red-500 max-w-lg w-full mx-4">
+     <h2 class="title-font text-3xl text-red-400 text-center mb-4">⚔️ Enemy Approaches! ⚔️</h2>
+     <div class="text-center mb-6">
+      <div class="text-6xl mb-2">
+       👹
+      </div>
+      <p class="game-font text-white text-lg">Click when the marker is in the green zone!</p>
+     </div><!-- Timing Bar -->
+     <div class="relative h-12 bg-gray-700 rounded-full overflow-hidden border-4 border-yellow-500 mb-6">
+      <!-- Success Zone -->
+      <div id="successZone" class="absolute h-full bg-green-500/70" style="left: 40%; width: 20%;"></div><!-- Perfect Zone -->
+      <div class="absolute h-full bg-green-400" style="left: 47%; width: 6%;"></div><!-- Moving Marker -->
+      <div id="timingMarker" class="absolute top-0 w-2 h-full bg-yellow-400 shadow-lg timing-marker"></div>
+     </div><button id="attackBtn" class="game-font w-full bg-red-500 hover:bg-red-400 text-white font-bold py-4 rounded-xl text-2xl transform hover:scale-105 transition-all"> ⚔️ ATTACK! ⚔️ </button> <!-- Result Display -->
+     <div id="attackResult" class="mt-4 text-center hidden">
+      <p class="game-font text-2xl font-bold" id="accuracyText"></p>
+     </div>
+    </div>
+   </div><!-- Level Transition -->
+   <div id="levelTransition" class="absolute inset-0 flex items-center justify-center bg-black z-50 hidden">
+    <div class="text-center">
+     <h2 class="title-font text-5xl text-yellow-400 mb-4" id="transitionText">Level 2</h2>
+     <div class="w-16 h-16 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mx-auto"></div>
+    </div>
+   </div><!-- Final Cutscene -->
+   <div id="finalCutscene" class="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-emerald-600 to-emerald-800 z-50 hidden">
+    <div id="confettiContainer" class="absolute inset-0 overflow-hidden pointer-events-none"></div>
+    <div class="text-center p-8 relative z-10">
+     <h1 class="title-font text-5xl md:text-7xl text-yellow-400 mb-6" style="text-shadow: 3px 3px 0 #15803d;">🎉 Victory! 🎉</h1>
+     <div class="mb-8">
+      <!-- Repaired Ship -->
+      <svg viewbox="0 0 200 100" class="w-64 h-32 mx-auto" style="animation: float 2s ease-in-out infinite;">
+       <ellipse cx="100" cy="70" rx="80" ry="25" fill="#8B4513" /> <polygon points="100,10 130,50 70,50" fill="#228B22" /> <rect x="95" y="30" width="10" height="40" fill="#8B4513" /> <circle cx="60" cy="60" r="8" fill="#FFD700" /> <circle cx="140" cy="60" r="8" fill="#FFD700" /> <circle cx="100" cy="60" r="8" fill="#FFD700" /> <!-- Happy Leprechauns --> <text x="50" y="55" font-size="12">
+        🧙
+       </text> <text x="90" y="55" font-size="12">
+        🧙
+       </text> <text x="130" y="55" font-size="12">
+        🧙
+       </text>
+      </svg>
+     </div>
+     <p class="game-font text-2xl text-white mb-6">The ship is repaired! The leprechauns rejoice!</p>
+     <div class="bg-yellow-500 rounded-3xl p-6 inline-block" style="animation: pulse-glow 1.5s ease-in-out infinite;">
+      <h2 class="title-font text-4xl text-emerald-900">Part Two Coming Soon!</h2>
+     </div>
+     <div class="mt-8">
+      <button id="playAgainBtn" class="game-font bg-emerald-500 hover:bg-emerald-400 text-white font-bold py-3 px-8 rounded-full text-xl"> 🍀 Play Again 🍀 </button>
+     </div>
+    </div>
+   </div><!-- Death Screen -->
+   <div id="deathScreen" class="absolute inset-0 flex items-center justify-center bg-black/80 z-50 hidden">
+    <div class="text-center p-8">
+     <h2 class="title-font text-4xl text-red-500 mb-4">💀 Oh No! 💀</h2>
+     <p class="game-font text-white text-xl mb-6">You fell or hit spikes!</p><button id="retryBtn" class="game-font bg-yellow-500 hover:bg-yellow-400 text-emerald-900 font-bold py-3 px-8 rounded-full text-xl"> 🔄 Try Again 🔄 </button>
+    </div>
+   </div>
+  </div>
+  <script>
+    // SDK Setup
+    const defaultConfig = {
+      game_title: "Leprechaun's Quest"
+    };
+    
+    let config = { ...defaultConfig };
+    
+    async function onConfigChange(newConfig) {
+      const title = newConfig.game_title || defaultConfig.game_title;
+      const titleEl = document.getElementById('gameTitle');
+      if (titleEl) {
+        titleEl.textContent = `🍀 ${title} 🍀`;
+      }
+    }
+    
+    if (window.elementSdk) {
+      window.elementSdk.init({
+        defaultConfig,
+        onConfigChange,
+        mapToCapabilities: (cfg) => ({
+          recolorables: [],
+          borderables: [],
+          fontEditable: undefined,
+          fontSizeable: undefined
+        }),
+        mapToEditPanelValues: (cfg) => new Map([
+          ["game_title", cfg.game_title || defaultConfig.game_title]
+        ])
+      });
+    }
+
+    // Game State
+    const GameState = {
+      INTRO: 'intro',
+      CUTSCENE: 'cutscene',
+      PLAYING: 'playing',
+      MINIGAME: 'minigame',
+      TRANSITION: 'transition',
+      VICTORY: 'victory',
+      DEAD: 'dead'
+    };
+
+    let gameState = GameState.INTRO;
+    let currentLevel = 1;
+    let shipPiecesCollected = 0;
+    let enemyTimer = 90; // 1 minute 30 seconds
+    let lastTime = 0;
+    let markerPosition = 0;
+    let markerDirection = 1;
+    let minigameActive = false;
+
+    // Canvas Setup
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    // Game constants
+    const GRAVITY = 0.6;
+    const PLAYER_SPEED = 6;
+    const JUMP_STRENGTH = 15;
+
+    // Player object
+    const player = {
+      x: 100,
+      y: 100,
+      width: 30,
+      height: 50,
+      velocityX: 0,
+      velocityY: 0,
+      onGround: false,
+      direction: 1, // 1 for right, -1 for left
+      jumpPressed: false
+    };
+
+    // Level data
+    let platforms = [];
+    let spikes = [];
+    let movingPlatforms = [];
+    let potsOfGold = [];
+    let shipPiece = null;
+
+    // Input
+    const keys = {};
+    document.addEventListener('keydown', (e) => {
+      keys[e.key.toLowerCase()] = true;
+      if (e.key === ' ') e.preventDefault();
+    });
+    document.addEventListener('keyup', (e) => {
+      keys[e.key.toLowerCase()] = false;
+    });
+
+    function clearLevel() {
+      platforms = [];
+      spikes = [];
+      movingPlatforms = [];
+      potsOfGold = [];
+      shipPiece = null;
+    }
+
+    function createPlatform(x, y, width, height, isGrass = true, isStone = false) {
+      platforms.push({
+        x, y, width, height, isGrass, isStone
+      });
+    }
+
+    function createMovingPlatform(x, y, width, height, moveAxis, moveDistance, speed) {
+      movingPlatforms.push({
+        x, y, width, height,
+        startX: x,
+        startY: y,
+        moveAxis,
+        moveDistance,
+        speed,
+        direction: 1,
+        offset: 0
+      });
+    }
+
+    function createSpike(x, y) {
+      spikes.push({ x, y, width: 25, height: 30 });
+    }
+
+    function createPotOfGold(x, y) {
+      potsOfGold.push({ x, y, width: 35, height: 30 });
+    }
+
+    function createShipPiece(x, y) {
+      shipPiece = { x, y, width: 30, height: 40, collected: false };
+    }
+
+    function loadLevel(levelNum) {
+      clearLevel();
+      player.x = 100;
+      player.y = canvas.height - 200;
+      player.velocityX = 0;
+      player.velocityY = 0;
+      enemyTimer = 90;
+      
+      switch(levelNum) {
+        case 1:
+          loadLevel1();
+          break;
+        case 2:
+          loadLevel2();
+          break;
+        case 3:
+          loadLevel3();
+          break;
+      }
+    }
+
+    function loadLevel1() {
+      // Easy level
+      createPlatform(0, canvas.height - 100, 200, 30, true, false);
+      createPlatform(250, canvas.height - 80, 150, 30, true, false);
+      createPlatform(450, canvas.height - 60, 150, 30, true, false);
+      createSpike(450, canvas.height - 100);
+      createPlatform(650, canvas.height - 40, 150, 30, true, false);
+      createPotOfGold(650, canvas.height - 90);
+      createPlatform(850, canvas.height - 20, 150, 30, true, false);
+      createPlatform(1050, canvas.height + 50, 200, 30, true, false);
+      
+      createShipPiece(1050, canvas.height - 50);
+    }
+
+    function loadLevel2() {
+      // Medium level
+      createPlatform(0, canvas.height - 100, 180, 30, true, false);
+      createSpike(150, canvas.height - 150);
+      createPlatform(250, canvas.height - 100, 150, 30, false, true);
+      createMovingPlatform(450, canvas.height - 80, 120, 30, 'y', 100, 2);
+      createPlatform(650, canvas.height - 60, 150, 30, true, false);
+      createSpike(650, canvas.height - 120);
+      createSpike(720, canvas.height - 120);
+      createPlatform(850, canvas.height - 40, 150, 30, false, true);
+      createMovingPlatform(1050, canvas.height - 20, 120, 30, 'x', 80, 1.5);
+      createPlatform(1250, canvas.height, 200, 30, true, false);
+      createPotOfGold(1250, canvas.height - 80);
+      
+      createShipPiece(1250, canvas.height - 100);
+    }
+
+    function loadLevel3() {
+      // Hard level
+      createPlatform(0, canvas.height - 100, 160, 30, true, false);
+      createSpike(100, canvas.height - 160);
+      createSpike(40, canvas.height - 160);
+      createMovingPlatform(250, canvas.height - 60, 100, 30, 'y', 120, 2.5);
+      createPlatform(450, canvas.height - 120, 130, 30, false, true);
+      createSpike(450, canvas.height - 180);
+      createPlatform(650, canvas.height - 80, 130, 30, true, false);
+      createMovingPlatform(850, canvas.height - 40, 100, 30, 'x', 100, 2);
+      createPlatform(1050, canvas.height, 130, 30, false, true);
+      createPotOfGold(1050, canvas.height - 80);
+      createSpike(1020, canvas.height - 120);
+      createSpike(1080, canvas.height - 120);
+      createMovingPlatform(1250, canvas.height + 40, 100, 30, 'y', 100, 2.2);
+      createPlatform(1450, canvas.height + 80, 150, 30, true, false);
+      createSpike(1400, canvas.height);
+      createSpike(1520, canvas.height);
+      
+      createShipPiece(1450, canvas.height - 20);
+    }
+
+    function drawPlayer() {
+      // Body (green coat)
+      ctx.fillStyle = '#228B22';
+      ctx.fillRect(player.x - 10, player.y + 15, 20, 25);
+      
+      // Head (skin tone)
+      ctx.fillStyle = '#FDBCAC';
+      ctx.beginPath();
+      ctx.arc(player.x, player.y + 8, 10, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Hat base
+      ctx.fillStyle = '#228B22';
+      ctx.fillRect(player.x - 12, player.y - 8, 24, 8);
+      
+      // Hat top (triangle)
+      ctx.fillStyle = '#1a6b1a';
+      ctx.beginPath();
+      ctx.moveTo(player.x - 10, player.y - 8);
+      ctx.lineTo(player.x + 10, player.y - 8);
+      ctx.lineTo(player.x, player.y - 18);
+      ctx.fill();
+      
+      // Hat buckle (gold)
+      ctx.fillStyle = '#FFD700';
+      ctx.fillRect(player.x - 6, player.y - 3, 12, 5);
+      
+      // Beard (red)
+      ctx.fillStyle = '#CC4400';
+      ctx.beginPath();
+      ctx.arc(player.x, player.y + 12, 7, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Eyes
+      ctx.fillStyle = '#000000';
+      ctx.beginPath();
+      ctx.arc(player.x - 4, player.y + 5, 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(player.x + 4, player.y + 5, 2, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Boots (brown)
+      ctx.fillStyle = '#654321';
+      ctx.fillRect(player.x - 8, player.y + 40, 8, 10);
+      ctx.fillRect(player.x, player.y + 40, 8, 10);
+    }
+
+    function drawPlatform(platform) {
+      if (platform.isGrass) {
+        // Grass platform
+        ctx.fillStyle = '#228B22';
+        ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+        
+        // Grass top
+        ctx.fillStyle = '#32CD32';
+        ctx.fillRect(platform.x, platform.y, platform.width, 5);
+        
+        // Clovers
+        ctx.fillStyle = '#00CC00';
+        for (let i = 0; i < 3; i++) {
+          ctx.beginPath();
+          ctx.arc(platform.x + (i + 1) * (platform.width / 4), platform.y - 5, 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else {
+        // Stone platform
+        ctx.fillStyle = '#808080';
+        ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+        ctx.strokeStyle = '#606060';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(platform.x, platform.y, platform.width, platform.height);
+      }
+    }
+
+    function drawSpike(spike) {
+      ctx.fillStyle = '#444444';
+      ctx.beginPath();
+      ctx.moveTo(spike.x + spike.width / 2, spike.y);
+      ctx.lineTo(spike.x + spike.width, spike.y + spike.height);
+      ctx.lineTo(spike.x, spike.y + spike.height);
+      ctx.fill();
+    }
+
+    function drawPotOfGold(pot) {
+      // Pot body
+      ctx.fillStyle = '#2F2F2F';
+      ctx.beginPath();
+      ctx.ellipse(pot.x + pot.width / 2, pot.y, pot.width / 2, pot.height / 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Gold coins
+      for (let i = 0; i < 3; i++) {
+        ctx.fillStyle = '#FFD700';
+        ctx.beginPath();
+        ctx.arc(pot.x + 5 + i * 12, pot.y - 10, 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawShipPiece(piece) {
+      if (piece.collected) return;
+      
+      // Glow
+      ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
+      ctx.beginPath();
+      ctx.arc(piece.x + piece.width / 2, piece.y + piece.height / 2, 35, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Anchor
+      ctx.strokeStyle = '#FFD700';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(piece.x + piece.width / 2, piece.y + 10, 8, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      ctx.fillStyle = '#FFD700';
+      ctx.fillRect(piece.x + piece.width / 2 - 2, piece.y + 10, 4, 15);
+    }
+
+    function drawRainbow() {
+      const rainbowY = 50;
+      const colors = ['#FF0000', '#FF7F00', '#FFFF00', '#00FF00', '#0000FF', '#4B0082', '#9400D3'];
+      
+      colors.forEach((color, i) => {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.arc(canvas.width - 150, rainbowY, 80 - i * 10, 0, Math.PI, false);
+        ctx.stroke();
+      });
+    }
+
+    function updatePlayer(delta) {
+      if (gameState !== GameState.PLAYING) return;
+      
+      // Movement
+      if (keys['a'] || keys['arrowleft']) {
+        player.velocityX = -PLAYER_SPEED;
+        player.direction = -1;
+      } else if (keys['d'] || keys['arrowright']) {
+        player.velocityX = PLAYER_SPEED;
+        player.direction = 1;
+      } else {
+        player.velocityX = 0;
+      }
+      
+      // Jump
+      const jumpKey = keys[' '] || keys['space'];
+      if (jumpKey && player.onGround) {
+        player.velocityY = -JUMP_STRENGTH;
+        player.onGround = false;
+        player.jumpPressed = true;
+      }
+      if (!jumpKey) {
+        player.jumpPressed = false;
+      }
+      
+      // Apply gravity
+      player.velocityY += GRAVITY;
+      
+      // Update position
+      player.x += player.velocityX;
+      player.y += player.velocityY;
+      
+      // Platform collision
+      player.onGround = false;
+      
+      // Check all platforms (regular + moving)
+      const allPlatforms = [...platforms, ...movingPlatforms];
+      
+      allPlatforms.forEach(platform => {
+        if (player.velocityY >= 0 &&
+            player.y + player.height <= platform.y + 10 &&
+            player.y + player.height >= platform.y - 10 &&
+            player.x + player.width > platform.x &&
+            player.x < platform.x + platform.width) {
+          player.y = platform.y - player.height;
+          player.velocityY = 0;
+          player.onGround = true;
+        }
+      });
+      
+      // Spike collision
+      spikes.forEach(spike => {
+        if (player.x + player.width > spike.x &&
+            player.x < spike.x + spike.width &&
+            player.y + player.height > spike.y &&
+            player.y < spike.y + spike.height) {
+          die();
+        }
+      });
+      
+      // Fall death
+      if (player.y > canvas.height + 100) {
+        die();
+      }
+      
+      // Ship piece collection
+      if (shipPiece && !shipPiece.collected &&
+          player.x + player.width > shipPiece.x &&
+          player.x < shipPiece.x + shipPiece.width &&
+          player.y + player.height > shipPiece.y &&
+          player.y < shipPiece.y + shipPiece.height) {
+        shipPiece.collected = true;
+        collectShipPiece();
+      }
+    }
+
+    function updateMovingPlatforms(delta) {
+      movingPlatforms.forEach(mp => {
+        mp.offset += mp.speed * mp.direction;
+        
+        if (Math.abs(mp.offset) >= mp.moveDistance) {
+          mp.direction *= -1;
+        }
+        
+        if (mp.moveAxis === 'x') {
+          mp.x = mp.startX + mp.offset;
+        } else if (mp.moveAxis === 'y') {
+          mp.y = mp.startY + mp.offset;
+        }
+      });
+    }
+
+    function updateEnemyTimer(delta) {
+      if (gameState !== GameState.PLAYING) return;
+      
+      enemyTimer -= delta / 1000;
+      
+      const minutes = Math.floor(enemyTimer / 60);
+      const seconds = Math.floor(enemyTimer % 60);
+      document.getElementById('enemyTimer').textContent = 
+        `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      
+      if (enemyTimer <= 0) {
+        startMinigame();
+      }
+    }
+
+    function collectShipPiece() {
+      shipPiecesCollected++;
+      
+      // Update UI
+      document.getElementById(`piece${shipPiecesCollected}`).textContent = '⚓';
+      
+      // Show message
+      const msgBox = document.getElementById('pieceCollectedBox');
+      const msgScreen = document.getElementById('pieceCollectedMsg');
+      msgScreen.classList.remove('hidden');
+      
+      setTimeout(() => {
+        msgBox.style.transform = 'scale(1)';
+      }, 100);
+      
+      setTimeout(() => {
+        msgBox.style.transform = 'scale(0)';
+        setTimeout(() => {
+          msgScreen.classList.add('hidden');
+          
+          if (shipPiecesCollected >= 3) {
+            showVictory();
+          } else {
+            nextLevel();
+          }
+        }, 500);
+      }, 2000);
+    }
+
+    function die() {
+      gameState = GameState.DEAD;
+      document.getElementById('deathScreen').classList.remove('hidden');
+    }
+
+    function nextLevel() {
+      gameState = GameState.TRANSITION;
+      currentLevel++;
+      
+      document.getElementById('transitionText').textContent = `Level ${currentLevel}`;
+      document.getElementById('levelTransition').classList.remove('hidden');
+      
+      setTimeout(() => {
+        loadLevel(currentLevel);
+        document.getElementById('levelDisplay').textContent = currentLevel;
+        document.getElementById('levelTransition').classList.add('hidden');
+        gameState = GameState.PLAYING;
+      }, 2000);
+    }
+
+    function startMinigame() {
+      gameState = GameState.MINIGAME;
+      minigameActive = true;
+      
+      document.getElementById('enemyMiniGame').classList.remove('hidden');
+      document.getElementById('attackResult').classList.add('hidden');
+      document.getElementById('attackBtn').disabled = false;
+      
+      // Reset marker animation
+      const marker = document.getElementById('timingMarker');
+      marker.style.animation = 'none';
+      marker.offsetHeight; // Trigger reflow
+      marker.style.animation = 'slide-marker 1.5s linear infinite alternate';
+    }
+
+    function handleAttack() {
+      if (!minigameActive) return;
+      minigameActive = false;
+      
+      const marker = document.getElementById('timingMarker');
+      const bar = marker.parentElement;
+      const markerRect = marker.getBoundingClientRect();
+      const barRect = bar.getBoundingClientRect();
+      
+      // Calculate marker position as percentage
+      const markerPos = ((markerRect.left - barRect.left) / barRect.width) * 100;
+      
+      // Success zone is 40% to 60% (center at 50%)
+      const successStart = 40;
+      const successEnd = 60;
+      const perfectCenter = 50;
+      
+      let accuracy = 0;
+      
+      if (markerPos >= successStart && markerPos <= successEnd) {
+        // Calculate accuracy based on distance from center
+        const distanceFromCenter = Math.abs(markerPos - perfectCenter);
+        const maxDistance = (successEnd - successStart) / 2;
+        accuracy = Math.round((1 - distanceFromCenter / maxDistance) * 100);
+        accuracy = Math.min(100, Math.max(80, accuracy)); // Clamp to 80-100 in success zone
+      } else {
+        // Outside success zone
+        const nearestEdge = markerPos < successStart ? successStart : successEnd;
+        const distanceFromZone = Math.abs(markerPos - nearestEdge);
+        accuracy = Math.max(0, Math.round(79 - distanceFromZone));
+      }
+      
+      // Stop marker animation
+      marker.style.animationPlayState = 'paused';
+      
+      // Show result
+      const resultText = document.getElementById('accuracyText');
+      const resultDiv = document.getElementById('attackResult');
+      
+      if (accuracy >= 80) {
+        resultText.textContent = `${accuracy}% - Enemy Defeated! ⚔️`;
+        resultText.className = 'game-font text-2xl font-bold text-green-400';
+        
+        setTimeout(() => {
+          document.getElementById('enemyMiniGame').classList.add('hidden');
+          enemyTimer = 90; // Reset timer
+          gameState = GameState.PLAYING;
+        }, 1500);
+      } else {
+        resultText.textContent = `${accuracy}% - Failed! Starting over...`;
+        resultText.className = 'game-font text-2xl font-bold text-red-400';
+        
+        setTimeout(() => {
+          document.getElementById('enemyMiniGame').classList.add('hidden');
+          loadLevel(currentLevel);
+          gameState = GameState.PLAYING;
+        }, 1500);
+      }
+      
+      resultDiv.classList.remove('hidden');
+      document.getElementById('attackBtn').disabled = true;
+    }
+
+    function showVictory() {
+      gameState = GameState.VICTORY;
+      document.getElementById('gameUI').classList.add('hidden');
+      document.getElementById('finalCutscene').classList.remove('hidden');
+      
+      // Create confetti
+      const container = document.getElementById('confettiContainer');
+      const colors = ['#FFD700', '#228B22', '#FF6B35', '#FFFFFF', '#87CEEB'];
+      
+      for (let i = 0; i < 100; i++) {
+        const confetti = document.createElement('div');
+        confetti.className = 'confetti';
+        confetti.style.left = Math.random() * 100 + '%';
+        confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        confetti.style.animationDelay = Math.random() * 3 + 's';
+        confetti.style.animationDuration = (2 + Math.random() * 2) + 's';
+        container.appendChild(confetti);
+      }
+    }
+
+    function startCutscene() {
+      gameState = GameState.CUTSCENE;
+      document.getElementById('introScreen').classList.add('hidden');
+      document.getElementById('introCutscene').classList.remove('hidden');
+      
+      const cutsceneFrames = [
+        { text: '🚢 The magical flying ship carried the leprechauns across the rainbow sky...', duration: 2500 },
+        { text: '💥 But a sudden storm struck! The ship broke apart!', duration: 2500 },
+        { text: '⚓ Three pieces fell to the floating islands below...', duration: 2500 },
+        { text: '🍀 Only YOU can find them and repair the ship!', duration: 2500 }
+      ];
+      
+      let frameIndex = 0;
+      const content = document.getElementById('cutsceneContent');
+      
+      function showFrame() {
+        if (frameIndex >= cutsceneFrames.length) {
+          document.getElementById('introCutscene').classList.add('hidden');
+          startGame();
+          return;
+        }
+        
+        content.innerHTML = `
+          <p class="game-font text-2xl text-white mb-4 transition-opacity duration-500">
+            ${cutsceneFrames[frameIndex].text}
+          </p>
+        `;
+        
+        frameIndex++;
+        setTimeout(showFrame, cutsceneFrames[frameIndex - 1].duration);
+      }
+      
+      showFrame();
+    }
+
+    function startGame() {
+      gameState = GameState.PLAYING;
+      currentLevel = 1;
+      shipPiecesCollected = 0;
+      enemyTimer = 90;
+      
+      // Reset UI
+      document.getElementById('piece1').textContent = '❓';
+      document.getElementById('piece2').textContent = '❓';
+      document.getElementById('piece3').textContent = '❓';
+      document.getElementById('levelDisplay').textContent = '1';
+      
+      document.getElementById('gameUI').classList.remove('hidden');
+      loadLevel(1);
+    }
+
+    // Event Listeners
+    document.getElementById('startBtn').addEventListener('click', startCutscene);
+    document.getElementById('attackBtn').addEventListener('click', handleAttack);
+    document.getElementById('retryBtn').addEventListener('click', () => {
+      document.getElementById('deathScreen').classList.add('hidden');
+      loadLevel(currentLevel);
+      gameState = GameState.PLAYING;
+    });
+    document.getElementById('playAgainBtn').addEventListener('click', () => {
+      document.getElementById('finalCutscene').classList.add('hidden');
+      document.getElementById('confettiContainer').innerHTML = '';
+      document.getElementById('introScreen').classList.remove('hidden');
+      gameState = GameState.INTRO;
+    });
+
+    // Window resize
+    window.addEventListener('resize', () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    });
+
+    // Animation Loop
+    let lastTime = 0;
+    function animate(time) {
+      requestAnimationFrame(animate);
+      
+      const delta = time - lastTime;
+      lastTime = time;
+      
+      // Clear canvas
+      ctx.fillStyle = '#87CEEB';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Draw grass gradient
+      const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      gradient.addColorStop(0, '#87CEEB');
+      gradient.addColorStop(0.6, '#98FB98');
+      gradient.addColorStop(1, '#228B22');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Draw rainbow
+      drawRainbow();
+      
+      if (gameState === GameState.PLAYING) {
+        updatePlayer(delta);
+        updateMovingPlatforms(delta);
+        updateEnemyTimer(delta);
+      }
+      
+      // Draw game objects
+      platforms.forEach(drawPlatform);
+      movingPlatforms.forEach(drawPlatform);
+      spikes.forEach(drawSpike);
+      potsOfGold.forEach(drawPotOfGold);
+      if (shipPiece) drawShipPiece(shipPiece);
+      
+      drawPlayer();
+    }
+
+    animate(0);
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9db62437f6ee4263',t:'MTc3MzM1MzU1Ny4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
